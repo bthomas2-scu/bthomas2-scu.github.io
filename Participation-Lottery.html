@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Participation Lottery</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a TV lotto set. Glass drum on the left, the draw tray on the right, a rack of drawn balls, then the roster ledger.
+   Deliberately single-theme: a dark studio stage under marquee bulbs. */
+:root{
+  color-scheme:dark;
+  --bg:#0b1030; --stage:#121a48; --panel:#18225a; --line:#2b3878;
+  --ink:#f3f4ff; --muted:#a6acd6; --gold:#f6c744; --gold-deep:#c8961c;
+  --display:"Bungee", "Arial Black", Impact, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --b-red:#e8433a; --b-orange:#f28c28; --b-yellow:#f4c430; --b-green:#36a862; --b-blue:#3a7bd5; --b-purple:#8a5cd6;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{background:radial-gradient(ellipse at 50% -10%, #23307a 0%, var(--bg) 60%) var(--bg);color:var(--ink);
+  font-family:var(--body);font-size:16px;line-height:1.5;min-height:100vh;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 56px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:28px}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(1.6rem,4.5vw,2.4rem);margin:0;color:var(--gold);
+  text-shadow:0 0 18px rgba(246,199,68,.35);letter-spacing:.02em}
+.eyebrow{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* Stage with marquee bulbs */
+.stage{position:relative;background:var(--stage);border-radius:22px;padding:34px clamp(16px,4vw,40px);
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(16px,4vw,40px);align-items:center;
+  box-shadow:0 0 0 2px var(--gold-deep) inset, 0 24px 60px rgba(0,0,0,.45)}
+.stage::before,.stage::after{content:"";position:absolute;left:22px;right:22px;height:10px;
+  background-image:radial-gradient(circle, var(--gold) 0 3px, transparent 3.5px);background-size:22px 10px;
+  animation:chase 1.6s linear infinite;filter:drop-shadow(0 0 4px rgba(246,199,68,.8))}
+.stage::before{top:10px}
+.stage::after{bottom:10px;animation-direction:reverse}
+.stage.live::before,.stage.live::after{animation-duration:.35s}
+@keyframes chase{to{background-position:22px 0}}
+@media (max-width:760px){.stage{grid-template-columns:1fr}}
+
+.machine{display:grid;justify-items:center;gap:10px;min-width:0}
+canvas{width:100%;max-width:440px;aspect-ratio:500/560;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block}
+
+.tray{display:grid;gap:18px;justify-items:center;text-align:center;min-width:0}
+.slot{width:100%;min-height:270px;background:var(--panel);border-radius:18px;border:1px solid var(--line);
+  display:grid;align-content:center;justify-items:center;gap:14px;padding:22px 18px;
+  box-shadow:inset 0 10px 30px rgba(0,0,0,.35)}
+.status{font-family:var(--display);font-size:.85rem;letter-spacing:.14em;color:var(--gold)}
+.name{font-family:var(--display);font-weight:400;font-size:clamp(1.7rem,4.6vw,2.7rem);line-height:1.08;margin:0;
+  text-wrap:balance;overflow-wrap:anywhere;max-width:100%}
+.name.idle{font-family:var(--body);font-weight:700;color:var(--muted);font-size:1.3rem}
+.scoreline{font-size:1.05rem;color:var(--muted)}
+.scoreline b{font-family:var(--display);font-weight:400;font-size:1.5rem;color:var(--ink);margin-left:6px}
+
+.ball{--c:var(--b-blue);--s:110px;width:var(--s);height:var(--s);border-radius:50%;flex:none;display:grid;place-items:center;
+  background:radial-gradient(circle at 34% 28%, rgba(255,255,255,.85) 0 6%, rgba(255,255,255,0) 32%),
+             radial-gradient(circle at 50% 55%, var(--c) 0 55%, color-mix(in srgb, var(--c) 60%, #000) 100%);
+  box-shadow:0 8px 18px rgba(0,0,0,.45)}
+.ball span{width:56%;height:56%;border-radius:50%;background:#fbfbf6;color:#14183a;display:grid;place-items:center;
+  font-family:var(--display);font-size:calc(var(--s)*.27);line-height:1;box-shadow:inset 0 -2px 4px rgba(0,0,0,.15)}
+.ball.drop{animation:drop .9s cubic-bezier(.3,.7,.4,1) both}
+@keyframes drop{0%{transform:translateY(-160px) rotate(-200deg);opacity:0}55%{transform:translateY(8px) rotate(10deg);opacity:1}
+  72%{transform:translateY(-14px)}86%{transform:translateY(3px)}100%{transform:none}}
+
+.draw{font-family:var(--display);font-weight:400;font-size:1.3rem;letter-spacing:.04em;background:linear-gradient(#ffd965,var(--gold) 50%,var(--gold-deep));
+  color:#2a1c00;border:0;border-radius:999px;padding:16px 42px;cursor:pointer;
+  box-shadow:0 5px 0 #8a6510, 0 10px 24px rgba(246,199,68,.25);transition:transform .1s ease, box-shadow .1s ease}
+.draw:hover{transform:translateY(-1px)}
+.draw:active{transform:translateY(4px);box-shadow:0 1px 0 #8a6510}
+.draw:disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed;transform:none}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+.ghost{font:inherit;font-size:.95rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:8px 16px;cursor:pointer}
+.ghost:hover:not(:disabled){border-color:var(--gold)}
+.ghost:disabled{opacity:.5;cursor:default}
+
+.controls{display:flex;gap:14px 24px;flex-wrap:wrap;justify-content:center;align-items:center;color:var(--muted);font-size:.95rem}
+.controls label{display:flex;gap:8px;align-items:center;cursor:pointer}
+select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+input[type=checkbox]{accent-color:var(--gold);width:18px;height:18px}
+
+section.block{display:grid;gap:12px}
+.block-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+h2{font-family:var(--display);font-weight:400;font-size:1.1rem;margin:0;letter-spacing:.03em}
+.hint{color:var(--muted);font-size:.9rem;margin:0}
+.rack{display:flex;flex-wrap:wrap;gap:12px;background:var(--stage);border:1px solid var(--line);border-radius:16px;padding:14px;min-height:92px;align-items:flex-start}
+.rack figure{margin:0;display:grid;justify-items:center;gap:4px;width:62px}
+.rack figcaption{font-size:.75rem;color:var(--muted);text-align:center;line-height:1.2;overflow-wrap:anywhere}
+.rack .empty{color:var(--muted);align-self:center}
+
+.table-wrap{overflow-x:auto;background:var(--stage);border:1px solid var(--line);border-radius:14px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:540px}
+th{text-align:left;font-weight:700;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:7px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr.called td{color:var(--muted)}
+tr.called .who::after{content:"drawn";margin-left:8px;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+tr.just td{background:rgba(246,199,68,.12)}
+.num{text-align:right;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.chip i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.odds{display:flex;align-items:center;gap:10px}
+.bar{height:8px;border-radius:4px;background:var(--gold);flex:none}
+.oddsn{min-width:3.4em;text-align:right;color:var(--muted);font-size:.9rem}
+.adj{display:inline-flex;gap:4px}
+.adj button{font:inherit;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;line-height:1}
+.adj button:hover{border-color:var(--gold)}
+.edited{font-size:.72rem;color:var(--gold);margin-left:4px}
+@media (prefers-reduced-motion: reduce){.stage::before,.stage::after{animation:none}.ball.drop{animation:none}.draw{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Participation Lottery</h1>
+    <span class="eyebrow">BUSN 70 · Participation draw</span>
+  </header>
+
+  <section class="stage" id="stage">
+    <div class="machine">
+      <canvas id="drum" aria-label="Lotto drum with one ball per student still in the draw"></canvas>
+      <div class="legend" aria-label="Ball colors by participation score">
+        <span><i style="background:var(--b-red)"></i>≤8</span>
+        <span><i style="background:var(--b-orange)"></i>10–12</span>
+        <span><i style="background:var(--b-yellow)"></i>14</span>
+        <span><i style="background:var(--b-green)"></i>16</span>
+        <span><i style="background:var(--b-blue)"></i>18</span>
+        <span><i style="background:var(--b-purple)"></i>20+</span>
+      </div>
+    </div>
+    <div class="tray">
+      <div class="slot" aria-live="polite">
+        <div class="status" id="status">READY TO DRAW</div>
+        <div id="ballOut"></div>
+        <p class="name idle" id="name">Ball number = participation score</p>
+        <div class="scoreline" id="scoreline"></div>
+      </div>
+      <button class="draw" id="draw">Draw a ball</button>
+      <div class="actions" id="after" hidden>
+        <button class="ghost" id="award">Answered: +2 points</button>
+        <button class="ghost" id="putback">Put back in the drum</button>
+      </div>
+      <div class="controls">
+        <label for="bias">Bias toward low scores
+          <select id="bias">
+            <option value="0">Off (equal odds)</option>
+            <option value="0.5">Gentle</option>
+            <option value="1" selected>Moderate</option>
+            <option value="2">Strong</option>
+          </select>
+        </label>
+        <label for="norepeat"><input type="checkbox" id="norepeat" checked> No repeats until everyone's drawn</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>Drawn so far</h2>
+      <div class="actions">
+        <span class="hint" id="remaining"></span>
+        <button class="ghost" id="refill">Refill the drum</button>
+      </div>
+    </div>
+    <div class="rack" id="rack"></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>Roster and odds</h2>
+      <button class="ghost" id="resetScores">Reset scores</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Student</th><th class="num">Participation</th><th>Chance of next draw</th><th class="num">Adjust</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="hint">Refill puts every drawn ball back in the drum and keeps scores. Reset scores returns everyone to their starting numbers. Both are saved in this browser only.</p>
+  </section>
+</div>
+
+<script>
+const START = [
+["Abby Uyeshiro",18],["Alex Zimmer",16],["Alina Schenkel-Zandstra",18],["Alli Dzieciuch",14],["Annika Damon",14],
+["Antonio Madrigal",18],["Ayden Duong-Nguyen",14],["Clementine Chanti",14],["Eiliyah Ali",10],["Emilio Javier Syjuco",16],
+["Hank Davidson",14],["Isabel Gregorian",12],["Jack Belloli",14],["Jack Nguyen",18],["Jacob Graff",18],
+["James Andrichuk",18],["Jason Uyeda",10],["Julian Pirie",22],["Katie Wang",14],["Liam Wichmann",16],
+["Nika Chu",16],["Paula Olmedo",14],["Rohan Gohel",18],["Ryan Koehler",14],["Samih Hammadou",16],
+["Sejal Kshirsagar",16],["Selina Yang",14],["Sofia May",8],["Sophia Tafoya",10],["Taige Sarkari",6],
+["Tamer Muhawieh",14],["Taylor Carney",20],["Zach Heller",18]];
+const KEY="busn70-hat-v1";
+let state={scores:START.map(s=>s[1]),called:[],bias:1,norepeat:true};
+try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s&&Array.isArray(s.scores)&&s.scores.length===START.length)state=Object.assign(state,s);}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+const $=id=>document.getElementById(id);
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let current=null, rolling=false;
+
+/* ---------- colors ---------- */
+const css=getComputedStyle(document.documentElement);
+const BANDS=[[8,"--b-red"],[12,"--b-orange"],[14,"--b-yellow"],[16,"--b-green"],[18,"--b-blue"],[Infinity,"--b-purple"]];
+const bandVar=s=>BANDS.find(b=>s<=b[0])[1];
+const colorOf=s=>css.getPropertyValue(bandVar(s)).trim();
+
+/* ---------- odds ---------- */
+function weights(){
+  const max=Math.max(...state.scores);
+  return state.scores.map((sc,i)=> (state.norepeat && state.called.includes(i)) ? 0 : Math.pow(max+2-sc, state.bias));
+}
+function pick(w){
+  const total=w.reduce((a,b)=>a+b,0); if(!total) return -1;
+  let r=Math.random()*total;
+  for(let i=0;i<w.length;i++){r-=w[i]; if(r<0) return i;}
+  for(let i=w.length-1;i>=0;i--) if(w[i]>0) return i;
+  return -1;
+}
+
+/* ---------- drum physics (logical units) ---------- */
+const LW=500, LH=560, CX=250, R=196, CY=92+R, BR=21, TUBE=BR+7;
+const cv=$("drum"), ctx=cv.getContext("2d");
+let balls=[], mixing=false, exiting=null;
+function resize(){const dpr=window.devicePixelRatio||1, w=cv.clientWidth||400;
+  cv.width=Math.round(w*dpr); cv.height=Math.round(w*LH/LW*dpr); ctx.setTransform(cv.width/LW,0,0,cv.height/LH,0,0);}
+addEventListener("resize",resize);
+function inDrum(){ return START.map((_,i)=>i).filter(i=>!(state.norepeat && state.called.includes(i))); }
+function syncBalls(initial){
+  const want=new Set(inDrum());
+  if(exiting) want.delete(exiting.i);
+  balls=balls.filter(b=>want.has(b.i));
+  const have=new Set(balls.map(b=>b.i));
+  let k=0;
+  want.forEach(i=>{ if(have.has(i)) return;
+    let x,y;
+    if(initial){ const a=Math.random()*Math.PI*2, d=Math.sqrt(Math.random())*(R-BR-4); x=CX+Math.cos(a)*d; y=CY+Math.sin(a)*d*0.6+R*0.3; }
+    else { x=CX+(Math.random()-.5)*30; y=CY-R+BR+4+(k++%3)*2; }
+    balls.push({i,x,y,vx:(Math.random()-.5)*3,vy:initial?0:2});
+  });
+}
+function physics(){
+  const g=0.22;
+  for(const b of balls){
+    b.vy+=g;
+    if(mixing){ b.vx+=(Math.random()-.5)*2.4; b.vy+=(Math.random()-.5)*2.4 - (b.y>CY+R*0.2?0.9:0); }
+    else if(b.y>CY+R*0.55 && Math.random()<0.025){ b.vy-=2+Math.random()*3; b.vx+=(Math.random()-.5)*2.5; }
+    b.vx*=0.994; b.vy*=0.994;
+    const sp=Math.hypot(b.vx,b.vy), mx=mixing?15:10; if(sp>mx){b.vx*=mx/sp;b.vy*=mx/sp;}
+    b.x+=b.vx; b.y+=b.vy;
+    const dx=b.x-CX, dy=b.y-CY, d=Math.hypot(dx,dy)||1, lim=R-BR-3;
+    if(d>lim){ const nx=dx/d, ny=dy/d; b.x=CX+nx*lim; b.y=CY+ny*lim; const vn=b.vx*nx+b.vy*ny;
+      if(vn>0){b.vx-=1.75*vn*nx; b.vy-=1.75*vn*ny;} }
+  }
+  for(let a=0;a<balls.length;a++) for(let c=a+1;c<balls.length;c++){
+    const p=balls[a], q=balls[c], dx=q.x-p.x, dy=q.y-p.y, d=Math.hypot(dx,dy);
+    if(d>0 && d<BR*2){ const nx=dx/d, ny=dy/d, o=(BR*2-d)/2;
+      p.x-=nx*o; p.y-=ny*o; q.x+=nx*o; q.y+=ny*o;
+      const rv=(p.vx-q.vx)*nx+(p.vy-q.vy)*ny;
+      if(rv>0){ const j=rv*0.92; p.vx-=j*nx; p.vy-=j*ny; q.vx+=j*nx; q.vy+=j*ny; } }
+  }
+}
+function drawBall(x,y,i,r=BR){
+  const sc=state.scores[i], c=colorOf(sc);
+  const g=ctx.createRadialGradient(x-r*.35,y-r*.4,r*.1,x,y,r);
+  g.addColorStop(0,"#ffffff"); g.addColorStop(.18,c); g.addColorStop(1,shade(c,-.45));
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y,r*.56,0,Math.PI*2); ctx.fillStyle="#fbfbf6"; ctx.fill();
+  ctx.fillStyle="#14183a"; ctx.font=`${Math.round(r*.62)}px Bungee, "Arial Black", sans-serif`;
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(String(sc),x,y+r*.04);
+}
+function shade(hex,amt){ const n=parseInt(hex.replace("#",""),16); let r=n>>16,g=n>>8&255,b=n&255;
+  const f=v=>Math.max(0,Math.min(255,Math.round(v+(amt<0?v*amt:(255-v)*amt))));
+  return `rgb(${f(r)},${f(g)},${f(b)})`; }
+function scene(now){
+  ctx.clearRect(0,0,LW,LH);
+  // base
+  ctx.fillStyle="#0a0e2a"; ctx.beginPath(); ctx.moveTo(CX-120,CY+R-30); ctx.lineTo(CX+120,CY+R-30); ctx.lineTo(CX+160,LH-12); ctx.lineTo(CX-160,LH-12); ctx.closePath(); ctx.fill();
+  const bg=ctx.createLinearGradient(0,CY+R,0,LH); bg.addColorStop(0,"#f6c744"); bg.addColorStop(1,"#a8770f");
+  ctx.fillStyle=bg; ctx.fillRect(CX-170,LH-52,340,40);
+  ctx.fillStyle="#2a1c00"; ctx.font="20px Bungee, 'Arial Black', sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("BUSN 70",CX,LH-31);
+  // drum back
+  const dg=ctx.createRadialGradient(CX,CY-R*.3,R*.1,CX,CY,R);
+  dg.addColorStop(0,"rgba(120,150,255,.16)"); dg.addColorStop(1,"rgba(40,60,160,.30)");
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.fillStyle=dg; ctx.fill();
+  // balls
+  for(const b of balls) drawBall(b.x,b.y,b.i);
+  // exiting ball
+  if(exiting){ const t=Math.min(1,(now-exiting.t0)/1300), top={x:CX,y:CY-R+BR+2}, out={x:CX,y:20};
+    let x,y; if(t<.5){const u=ease(t/.5); x=exiting.x+(top.x-exiting.x)*u; y=exiting.y+(top.y-exiting.y)*u;}
+    else {const u=ease((t-.5)/.5); x=top.x; y=top.y+(out.y-top.y)*u;}
+    drawBall(x,y,exiting.i, BR*(1+.15*Math.sin(t*Math.PI)));
+    if(t>=1){ const cb=exiting.done; exiting=null; cb(); } }
+  // tube
+  ctx.fillStyle="rgba(170,190,255,.10)"; ctx.fillRect(CX-TUBE,6,TUBE*2,CY-R+10);
+  ctx.strokeStyle="rgba(200,215,255,.55)"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(CX-TUBE,6); ctx.lineTo(CX-TUBE,CY-R+6); ctx.moveTo(CX+TUBE,6); ctx.lineTo(CX+TUBE,CY-R+6); ctx.stroke();
+  // glass rim + highlight
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.strokeStyle="rgba(200,215,255,.7)"; ctx.lineWidth=3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,R-14,Math.PI*1.08,Math.PI*1.42); ctx.strokeStyle="rgba(255,255,255,.45)"; ctx.lineWidth=7; ctx.lineCap="round"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,R-14,Math.PI*1.5,Math.PI*1.56); ctx.strokeStyle="rgba(255,255,255,.3)"; ctx.stroke();
+  ctx.lineCap="butt";
+}
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+function loop(now){ physics(); physics(); scene(now); requestAnimationFrame(loop); }
+
+/* ---------- UI ---------- */
+function ballHTML(i,size,drop){ const sc=state.scores[i];
+  return `<div class="ball${drop?" drop":""}" style="--c:var(${bandVar(sc)});--s:${size}px"><span>${sc}</span></div>`; }
+function render(){
+  syncBalls(false);
+  const w=weights(), total=w.reduce((a,b)=>a+b,0)||1, top=Math.max(...w)/total||0;
+  $("rows").innerHTML=START.map(([n],i)=>{
+    const p=w[i]/total, sc=state.scores[i];
+    const cls=[state.called.includes(i)?"called":"", i===current?"just":""].join(" ");
+    const edited=sc!==START[i][1]?`<span class="edited">(${sc>START[i][1]?"+":""}${sc-START[i][1]})</span>`:"";
+    return `<tr class="${cls}"><td class="who">${n}</td>
+      <td class="num"><span class="chip"><i style="background:var(${bandVar(sc)})"></i><b>${sc}</b></span>${edited}</td>
+      <td><div class="odds"><span class="oddsn">${(p*100).toFixed(1)}%</span><span class="bar" style="width:${top?Math.round(p/top*120):0}px"></span></div></td>
+      <td class="num"><span class="adj"><button data-i="${i}" data-d="-1" aria-label="Lower ${n}'s score">−</button><button data-i="${i}" data-d="1" aria-label="Raise ${n}'s score">+</button></span></td></tr>`;
+  }).join("");
+  $("rack").innerHTML=state.called.length
+    ? state.called.map(i=>`<figure title="${START[i][0]}">${ballHTML(i,46)}<figcaption>${START[i][0].split(" ")[0]}</figcaption></figure>`).join("")
+    : `<span class="empty">No balls drawn yet.</span>`;
+  const left=inDrum().length;
+  $("remaining").textContent=state.norepeat?`${left} of ${START.length} balls in the drum`:"Repeats allowed: drawn balls go back in";
+  $("draw").disabled=rolling || left===0;
+  if(left===0 && !rolling && current===null) setIdle("DRUM EMPTY","Everyone's been drawn. Refill the drum.");
+  $("bias").value=String(state.bias); $("norepeat").checked=state.norepeat;
+}
+function setIdle(status,msg){ $("status").textContent=status; $("ballOut").innerHTML=""; $("name").className="name idle"; $("name").textContent=msg; $("scoreline").innerHTML=""; $("after").hidden=true; }
+function showResult(i,drop){
+  $("status").textContent="PICK";
+  $("ballOut").innerHTML=ballHTML(i,110,drop);
+  $("name").className="name"; $("name").textContent=START[i][0];
+  $("scoreline").innerHTML=`Participation score<b>${state.scores[i]}</b>`;
+  $("after").hidden=false;
+}
+function draw(){
+  if(rolling) return;
+  const i=pick(weights()); if(i<0) return;
+  rolling=true; current=null; $("award").disabled=false;
+  setIdle("MIXING…","Balls are in the air");
+  $("stage").classList.add("live");
+  mixing=true; render();
+  const finish=()=>{ rolling=false; current=i; if(!state.called.includes(i)) state.called.push(i); save();
+    $("stage").classList.remove("live"); showResult(i,!reduce); render(); };
+  if(reduce){ mixing=false; balls=balls.filter(b=>b.i!==i); return finish(); }
+  setTimeout(()=>{
+    mixing=false;
+    const b=balls.find(b=>b.i===i);
+    $("status").textContent="HERE IT COMES…";
+    if(!b) return finish();
+    balls=balls.filter(x=>x!==b);
+    exiting={i,x:b.x,y:b.y,t0:performance.now(),done:finish};
+  },2400);
+}
+$("draw").onclick=draw;
+$("award").onclick=()=>{ if(current===null) return; state.scores[current]+=2; save(); showResult(current,false); render(); $("award").disabled=true; };
+$("putback").onclick=()=>{ if(current===null) return; state.called=state.called.filter(x=>x!==current); current=null; save(); setIdle("READY TO DRAW","Ball returned to the drum"); render(); };
+$("bias").onchange=e=>{ state.bias=parseFloat(e.target.value); save(); render(); };
+$("norepeat").onchange=e=>{ state.norepeat=e.target.checked; save(); render(); };
+$("refill").onclick=()=>{ if(rolling) return; state.called=[]; current=null; save(); setIdle("READY TO DRAW","Ball number = participation score"); render(); };
+let armed=false;
+$("resetScores").onclick=()=>{
+  if(!armed){ armed=true; $("resetScores").textContent="Click again to reset"; setTimeout(()=>{armed=false;$("resetScores").textContent="Reset scores";},3000); return; }
+  armed=false; $("resetScores").textContent="Reset scores"; state.scores=START.map(s=>s[1]); save(); if(current!==null) showResult(current,false); render(); };
+$("rows").addEventListener("click",e=>{ const b=e.target.closest("button[data-i]"); if(!b) return;
+  const i=+b.dataset.i; state.scores[i]=Math.max(0,state.scores[i]+ +b.dataset.d); save(); if(i===current) showResult(i,false); render(); });
+
+resize(); syncBalls(true); render();
+for(let k=0;k<120;k++) physics();
+requestAnimationFrame(loop);
+if(document.fonts) document.fonts.load('20px Bungee').catch(()=>{});
+</script>
+</body>
+</html>
